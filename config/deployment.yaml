@@ -1,24 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
+  name: node-hello-world
   labels:
     app: node-hello-world
-  name: node-hello-world
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: node-hello-world
-  strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: node-hello-world
     spec:
       containers:
-      - image: us.icr.io/samples/node-hello-world:v1
-        name: node-hello-world
-        resources: {}
-status: {}
+        - name: node-hello-world
+          image: dinaldocker/node-hello-world:latest
+          ports:
+            - containerPort: 3000
+
