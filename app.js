@@ -8,6 +8,7 @@ const host = '0.0.0.0';
 
 app.get('/', (req, res) => {
   res.send('Hello World from IBM Cloud Essentials!');
+  req.send('testing pipeline');
 })
 
 app.listen(port, host);
