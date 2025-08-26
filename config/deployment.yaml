@@ -18,5 +18,5 @@ spec:
         - name: node-hello-world
           image: dinaldocker/node-hello-world:latest
           ports:
-            - containerPort: 3000
+            - containerPort: 8083
 
