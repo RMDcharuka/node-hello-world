@@ -51,7 +51,7 @@ pipeline {
             }
         }
 
-       stage('Deploy to K3s Cluster') {
+     stage('Deploy to K3s Cluster') {
     steps {
         script {
             bat 'echo 🚀 Deploying to K3s cluster on VM...'
@@ -93,32 +93,54 @@ pipeline {
                 )
             """
             
-            bat "kubectl --kubeconfig=${kubeconfigPath} rollout status deployment/%APP_NAME% --timeout=2m"
+            // ADD POD CLEANUP BEFORE ROLLOUT STATUS
+            bat """
+                echo "🧹 Cleaning up any stuck pods..."
+                kubectl --kubeconfig=${kubeconfigPath} delete pods -l app=%APP_NAME% --grace-period=0 --force 2>nul || echo "No stuck pods found"
+                
+                timeout /t 5
+                
+                echo "⏳ Waiting for rollout..."
+                kubectl --kubeconfig=${kubeconfigPath} rollout status deployment/%APP_NAME% --timeout=180s
+            """
+            
             bat 'echo ✅ Deployment and Service updated successfully!'
         }
     }
 }
-        stage('Verify Deployment') {
-            steps {
-                script {
-                    bat "kubectl --kubeconfig=%KUBECONFIG% rollout status deployment/%APP_NAME% --timeout=180s"
-                    bat "kubectl --kubeconfig=%KUBECONFIG% get svc %APP_NAME%-service"
-                    
-                    // For complex scripting, use PowerShell
-                    powershell """
-                        \$nodePort = kubectl --kubeconfig=${env:KUBECONFIG} get svc ${env:APP_NAME}-service -o jsonpath='{.spec.ports[0].nodePort}'
-                        Write-Output \"📊 Service NodePort: \$nodePort\"
-                        if (\$nodePort) {
-                            curl -s http://${env:VM_IP}:\$nodePort || Write-Output 'Curl test failed but deployment succeeded'
-                            Write-Output \"🌐 Application accessible at: http://${env:VM_IP}:\$nodePort\"
-                        }
-                    """
-                    
-                    bat 'echo ✅ Deployment verified successfully'
+
+stage('Verify Deployment') {
+    steps {
+        script {
+            // USE THE SAME kubeconfigPath VARIABLE
+            def kubeconfigPath = 'C:\\\\Users\\\\user\\\\Desktop\\\\k3s.yaml'
+            
+            bat """
+                kubectl --kubeconfig=${kubeconfigPath} rollout status deployment/%APP_NAME% --timeout=180s
+                kubectl --kubeconfig=${kubeconfigPath} get svc %APP_NAME%-service
+            """
+            
+            // Use PowerShell with the correct path
+            powershell """
+                `$nodePort = kubectl --kubeconfig=C:\\Users\\user\\Desktop\\k3s.yaml get svc %APP_NAME%-service -o jsonpath='{.spec.ports[0].nodePort}'
+                Write-Output \"📊 Service NodePort: `$nodePort\"
+                if (`$nodePort) {
+                    try {
+                        `$response = curl -s http://${env:VM_IP}:`$nodePort
+                        Write-Output \"✅ Application response: `$response\"
+                    } catch {
+                        Write-Output \"⚠️  Curl test failed but deployment may still be successful\"
+                    }
+                    Write-Output \"🌐 Application accessible at: http://${env:VM_IP}:`$nodePort\"
+                } else {
+                    Write-Output \"❌ Could not determine NodePort\"
                 }
-            }
+            """
+            
+            bat 'echo ✅ Deployment verified successfully'
         }
     }
+}
 
     post {
         always {
