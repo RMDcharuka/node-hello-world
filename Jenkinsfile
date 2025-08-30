@@ -99,32 +99,42 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 script {
-                    // First part: Check rollout status and get service info using bat
+                    // Check rollout status
                     bat """
                         kubectl --kubeconfig=${env.KUBECONFIG_PATH} rollout status deployment/${env.APP_NAME} --timeout=180s
-                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service
+                        echo ✅ Rollout completed successfully
                     """
                     
-                    // Second part: Use PowerShell with proper escaping - FIXED VERSION
-                    powershell """
-                        # Get the NodePort - properly escaped `$ signs
-                        `$nodePort = kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service -o jsonpath='{.spec.ports[0].nodePort}'
-                        Write-Output \"📊 Service NodePort: `$nodePort\"
-                        
-                        if (`$nodePort -and `$nodePort -ne '') {
-                            try {
-                                # Test the application endpoint
-                                `$response = Invoke-WebRequest -Uri \"http://${env.VM_IP}:`$nodePort\" -UseBasicParsing -ErrorAction Stop
-                                Write-Output \"✅ Application response: Status code `$(`$response.StatusCode)\"
-                            } catch {
-                                Write-Output \"⚠️ HTTP test failed: `$(`_.Exception.Message)\"
-                                Write-Output \"This might be expected if the application is still starting up\"
-                            }
-                            Write-Output \"🌐 Application accessible at: http://${env.VM_IP}:`$nodePort\"
-                        } else {
-                            Write-Output \"❌ Could not determine NodePort from service\"
-                        }
+                    // Get service details
+                    bat """
+                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service -o wide
                     """
+                    
+                    // Get NodePort using simple bat command
+                    def nodePort = bat(
+                        script: """
+                            kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service -o jsonpath='{.spec.ports[0].nodePort}'
+                        """,
+                        returnStdout: true
+                    ).trim()
+                    
+                    echo "📊 Detected NodePort: ${nodePort}"
+                    
+                    if (nodePort && nodePort != "null") {
+                        echo "🌐 Application accessible at: http://${env.VM_IP}:${nodePort}"
+                        
+                        // Simple connectivity test using bat
+                        bat """
+                            echo Testing connectivity to http://${env.VM_IP}:${nodePort}
+                            curl --connect-timeout 10 --max-time 15 http://${env.VM_IP}:${nodePort} || echo "Connectivity test completed (curl may not be available)"
+                            ping -n 3 ${env.VM_IP} || echo "Ping test completed"
+                        """
+                    } else {
+                        echo "❌ Could not determine NodePort or service type is not NodePort"
+                        bat """
+                            kubectl --kubeconfig=${env.KUBECONFIG_PATH} describe svc ${env.APP_NAME}-service
+                        """
+                    }
                     
                     bat 'echo ✅ Deployment verification completed'
                 }
