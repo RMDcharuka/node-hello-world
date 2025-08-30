@@ -91,17 +91,6 @@ pipeline {
                         )
                     """
                     
-                    // ADD POD CLEANUP BEFORE ROLLOUT STATUS
-                    bat """
-                        echo "🧹 Cleaning up any stuck pods..."
-                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} delete pods -l app=${env.APP_NAME} --grace-period=0 --force 2>nul || echo "No stuck pods found"
-                        
-                        timeout /t 5
-                        
-                        echo "⏳ Waiting for rollout..."
-                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} rollout status deployment/${env.APP_NAME} --timeout=180s
-                    """
-                    
                     bat 'echo ✅ Deployment and Service updated successfully!'
                 }
             }
