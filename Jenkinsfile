@@ -96,40 +96,41 @@ pipeline {
             }
         }
 
-       stage('Verify Deployment') {
-    steps {
-        script {
-            // First part: Check rollout status and get service info using bat
-            bat """
-                kubectl --kubeconfig=${env.KUBECONFIG_PATH} rollout status deployment/${env.APP_NAME} --timeout=180s
-                kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service
-            """
-            
-            // Second part: Use PowerShell with proper escaping
-            powershell """
-                # Get the NodePort - note the escaped $ signs
-                `$nodePort = kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service -o jsonpath='{.spec.ports[0].nodePort}'
-                Write-Output "📊 Service NodePort: `$nodePort"
-                
-                if (`$nodePort -and `$nodePort -ne '') {
-                    try {
-                        # Test the application endpoint
-                        `$response = Invoke-WebRequest -Uri "http://${env.VM_IP}:`$nodePort" -UseBasicParsing -ErrorAction Stop
-                        Write-Output "✅ Application response: Status code `$(`$response.StatusCode)"
-                    } catch {
-                        Write-Output "⚠️ HTTP test failed: `$(`_.Exception.Message)"
-                        Write-Output "This might be expected if the application is still starting up"
-                    }
-                    Write-Output "🌐 Application accessible at: http://${env.VM_IP}:`$nodePort"
-                } else {
-                    Write-Output "❌ Could not determine NodePort from service"
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    // First part: Check rollout status and get service info using bat
+                    bat """
+                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} rollout status deployment/${env.APP_NAME} --timeout=180s
+                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service
+                    """
+                    
+                    // Second part: Use PowerShell with proper escaping - FIXED VERSION
+                    powershell """
+                        # Get the NodePort - properly escaped `$ signs
+                        `$nodePort = kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service -o jsonpath='{.spec.ports[0].nodePort}'
+                        Write-Output \"📊 Service NodePort: `$nodePort\"
+                        
+                        if (`$nodePort -and `$nodePort -ne '') {
+                            try {
+                                # Test the application endpoint
+                                `$response = Invoke-WebRequest -Uri \"http://${env.VM_IP}:`$nodePort\" -UseBasicParsing -ErrorAction Stop
+                                Write-Output \"✅ Application response: Status code `$(`$response.StatusCode)\"
+                            } catch {
+                                Write-Output \"⚠️ HTTP test failed: `$(`_.Exception.Message)\"
+                                Write-Output \"This might be expected if the application is still starting up\"
+                            }
+                            Write-Output \"🌐 Application accessible at: http://${env.VM_IP}:`$nodePort\"
+                        } else {
+                            Write-Output \"❌ Could not determine NodePort from service\"
+                        }
+                    """
+                    
+                    bat 'echo ✅ Deployment verification completed'
                 }
-            """
-            
-            bat 'echo ✅ Deployment verification completed'
+            }
         }
     }
-}
 
     post {
         always {
