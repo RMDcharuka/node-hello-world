@@ -54,47 +54,16 @@ pipeline {
        stage('Deploy to K3s Cluster') {
     steps {
         script {
-            bat 'echo 🚀 Deploying to K3s cluster on VM...'
-            
-            // USE THE DIRECT FILE PATH - NOT JENKINS CREDENTIAL
+            // Temporary: Set the kubeconfig path manually
             def kubeconfigPath = 'C:\\\\Users\\\\user\\\\Desktop\\\\k3s.yaml'
             
             bat """
+                echo Using kubeconfig: ${kubeconfigPath}
                 kubectl --kubeconfig=${kubeconfigPath} cluster-info
-                if errorlevel 1 (
-                    echo ERROR: Failed to connect to cluster
-                    exit /b 1
-                )
                 
-                kubectl --kubeconfig=${kubeconfigPath} get deployment %APP_NAME%
-                if errorlevel 1 (
-                    echo Creating new deployment...
-                    kubectl --kubeconfig=${kubeconfigPath} create deployment %APP_NAME% ^
-                        --image=%IMAGE_NAME% ^
-                        --port=8083
-                    kubectl --kubeconfig=${kubeconfigPath} scale deployment/%APP_NAME% --replicas=2
-                ) else (
-                    echo Updating existing deployment...
-                    kubectl --kubeconfig=${kubeconfigPath} set image deployment/%APP_NAME% %APP_NAME%=%IMAGE_NAME% --record
-                )
+                # Continue with your rollout command
+                kubectl --kubeconfig=${kubeconfigPath} rollout status deployment/%APP_NAME% --timeout=180s
             """
-            
-            bat """
-                kubectl --kubeconfig=${kubeconfigPath} get service %APP_NAME%-service
-                if errorlevel 1 (
-                    echo Creating new service...
-                    kubectl --kubeconfig=${kubeconfigPath} expose deployment %APP_NAME% ^
-                        --port=80 ^
-                        --target-port=8083 ^
-                        --name=%APP_NAME%-service ^
-                        --type=NodePort
-                ) else (
-                    echo Service already exists
-                )
-            """
-            
-            bat "kubectl --kubeconfig=${kubeconfigPath} rollout status deployment/%APP_NAME% --timeout=2m"
-            bat 'echo ✅ Deployment and Service updated successfully!'
         }
     }
 }
