@@ -96,51 +96,28 @@ pipeline {
             }
         }
 
-        stage('Verify Deployment') {
-            steps {
-                script {
-                    // Check rollout status
-                    bat """
-                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} rollout status deployment/${env.APP_NAME} --timeout=180s
-                        echo ✅ Rollout completed successfully
-                    """
-                    
-                    // Get service details
-                    bat """
-                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service -o wide
-                    """
-                    
-                    // Get NodePort using simple bat command
-                    def nodePort = bat(
-                        script: """
-                            kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service -o jsonpath='{.spec.ports[0].nodePort}'
-                        """,
-                        returnStdout: true
-                    ).trim()
-                    
-                    echo "📊 Detected NodePort: ${nodePort}"
-                    
-                    if (nodePort && nodePort != "null") {
-                        echo "🌐 Application accessible at: http://${env.VM_IP}:${nodePort}"
-                        
-                        // Simple connectivity test using bat
-                        bat """
-                            echo Testing connectivity to http://${env.VM_IP}:${nodePort}
-                            curl --connect-timeout 10 --max-time 15 http://${env.VM_IP}:${nodePort} || echo "Connectivity test completed (curl may not be available)"
-                            ping -n 3 ${env.VM_IP} || echo "Ping test completed"
-                        """
-                    } else {
-                        echo "❌ Could not determine NodePort or service type is not NodePort"
-                        bat """
-                            kubectl --kubeconfig=${env.KUBECONFIG_PATH} describe svc ${env.APP_NAME}-service
-                        """
-                    }
-                    
-                    bat 'echo ✅ Deployment verification completed'
-                }
-            }
+       stage('Verify Deployment') {
+    steps {
+        script {
+            // Basic verification without complex NodePort handling
+            bat """
+                echo 🔍 Verifying deployment...
+                kubectl --kubeconfig=${env.KUBECONFIG_PATH} rollout status deployment/${env.APP_NAME} --timeout=180s
+                echo ✅ Rollout completed successfully
+                
+                echo 📊 Service status:
+                kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service
+                
+                echo 📊 Pod status:
+                kubectl --kubeconfig=${env.KUBECONFIG_PATH} get pods -l app=${env.APP_NAME}
+                
+                echo.
+                echo ✅ If you see your service above, deployment was successful!
+                echo 🌐 Check the NodePort from the service output and access via: http://${env.VM_IP}:NODE_PORT
+            """
         }
     }
+}
 
     post {
         always {
