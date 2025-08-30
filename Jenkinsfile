@@ -53,36 +53,50 @@ pipeline {
         }
 
         stage('Deploy to K3s Cluster') {
-            steps {
-                script {
-                    bat 'echo 🚀 Deploying to K3s cluster on VM...'
-                    
-                    // For multi-line commands on Windows, use triple quotes and && for continuation
-                    bat """
-                        kubectl --kubeconfig=%KUBECONFIG% cluster-info && \
-                        kubectl --kubeconfig=%KUBECONFIG% get deployment %APP_NAME% || \
-                        kubectl --kubeconfig=%KUBECONFIG% create deployment %APP_NAME% ^
-                            --image=%IMAGE_NAME% ^
-                            --port=8083 && \
-                        kubectl --kubeconfig=%KUBECONFIG% scale deployment/%APP_NAME% --replicas=2 && \
-                        kubectl --kubeconfig=%KUBECONFIG% set image deployment/%APP_NAME% %APP_NAME%=%IMAGE_NAME% --record
-                    """
-                    
-                    bat """
-                        kubectl --kubeconfig=%KUBECONFIG% get service %APP_NAME%-service || \
-                        kubectl --kubeconfig=%KUBECONFIG% expose deployment %APP_NAME% ^
-                            --port=80 ^
-                            --target-port=8083 ^
-                            --name=%APP_NAME%-service ^
-                            --type=NodePort
-                    """
-                    
-                    bat "kubectl --kubeconfig=%KUBECONFIG% rollout status deployment/%APP_NAME% --timeout=2m"
-                    bat 'echo ✅ Deployment and Service updated successfully!'
-                }
-            }
+    steps {
+        script {
+            bat 'echo 🚀 Deploying to K3s cluster on VM...'
+            
+            // Use Windows batch syntax with parentheses and IF ERRORLEVEL
+            bat """
+                kubectl --kubeconfig=%KUBECONFIG% cluster-info
+                if errorlevel 1 (
+                    echo ERROR: Failed to connect to cluster
+                    exit /b 1
+                )
+                
+                kubectl --kubeconfig=%KUBECONFIG% get deployment %APP_NAME%
+                if errorlevel 1 (
+                    echo Creating new deployment...
+                    kubectl --kubeconfig=%KUBECONFIG% create deployment %APP_NAME% ^
+                        --image=%IMAGE_NAME% ^
+                        --port=8083
+                    kubectl --kubeconfig=%KUBECONFIG% scale deployment/%APP_NAME% --replicas=2
+                ) else (
+                    echo Updating existing deployment...
+                    kubectl --kubeconfig=%KUBECONFIG% set image deployment/%APP_NAME% %APP_NAME%=%IMAGE_NAME% --record
+                )
+            """
+            
+            bat """
+                kubectl --kubeconfig=%KUBECONFIG% get service %APP_NAME%-service
+                if errorlevel 1 (
+                    echo Creating new service...
+                    kubectl --kubeconfig=%KUBECONFIG% expose deployment %APP_NAME% ^
+                        --port=80 ^
+                        --target-port=8083 ^
+                        --name=%APP_NAME%-service ^
+                        --type=NodePort
+                ) else (
+                    echo Service already exists
+                )
+            """
+            
+            bat "kubectl --kubeconfig=%KUBECONFIG% rollout status deployment/%APP_NAME% --timeout=2m"
+            bat 'echo ✅ Deployment and Service updated successfully!'
         }
-
+    }
+}
         stage('Verify Deployment') {
             steps {
                 script {
