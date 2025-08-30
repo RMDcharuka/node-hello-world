@@ -59,7 +59,7 @@ pipeline {
             
             // Use Windows batch syntax with parentheses and IF ERRORLEVEL
             bat """
-                kubectl --kubeconfig=%KUBECONFIG% cluster-info
+                kubectl --kubeconfig=C:\\Users\\user\\Downloads\\k3s.yaml cluster-info
                 if errorlevel 1 (
                     echo ERROR: Failed to connect to cluster
                     exit /b 1
