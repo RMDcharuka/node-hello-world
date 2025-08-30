@@ -6,7 +6,6 @@ pipeline {
         IMAGE_NAME = "dinaldocker/node-hello-world:${env.BUILD_ID}"
         APP_NAME = 'node-hello-world'
         VM_IP = '172.10.20.2' // REPLACE WITH YOUR VM's ACTUAL IP
-        KUBECONFIG = credentials('k3s-kubeconfig')
     }
 
     stages {
