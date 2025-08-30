@@ -5,20 +5,20 @@ pipeline {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-cred')
         IMAGE_NAME = "dinaldocker/node-hello-world:${env.BUILD_ID}"
         APP_NAME = 'node-hello-world'
-        VM_IP = '172.10.20.2' // REPLACE WITH YOUR VM's ACTUAL IP
+        VM_IP = '172.10.20.2'
         KUBECONFIG_PATH = 'C:\\\\Users\\\\user\\\\Desktop\\\\k3s.yaml'
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                checkout scm: [
+                checkout([
                     $class: 'GitSCM',
                     branches: [[name: 'main']],
                     userRemoteConfigs: [[
                         url: 'https://github.com/RMDcharuka/node-hello-world.git'
                     ]]
-                ]
+                ])
                 bat 'echo ✅ Code checked out successfully'
             }
         }
@@ -96,28 +96,29 @@ pipeline {
             }
         }
 
-       stage('Verify Deployment') {
-    steps {
-        script {
-            // Basic verification without complex NodePort handling
-            bat """
-                echo 🔍 Verifying deployment...
-                kubectl --kubeconfig=${env.KUBECONFIG_PATH} rollout status deployment/${env.APP_NAME} --timeout=180s
-                echo ✅ Rollout completed successfully
-                
-                echo 📊 Service status:
-                kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service
-                
-                echo 📊 Pod status:
-                kubectl --kubeconfig=${env.KUBECONFIG_PATH} get pods -l app=${env.APP_NAME}
-                
-                echo.
-                echo ✅ If you see your service above, deployment was successful!
-                echo 🌐 Check the NodePort from the service output and access via: http://${env.VM_IP}:NODE_PORT
-            """
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    // Basic verification without complex NodePort handling
+                    bat """
+                        echo 🔍 Verifying deployment...
+                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} rollout status deployment/${env.APP_NAME} --timeout=180s
+                        echo ✅ Rollout completed successfully
+                        
+                        echo 📊 Service status:
+                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} get svc ${env.APP_NAME}-service
+                        
+                        echo 📊 Pod status:
+                        kubectl --kubeconfig=${env.KUBECONFIG_PATH} get pods -l app=${env.APP_NAME}
+                        
+                        echo.
+                        echo ✅ If you see your service above, deployment was successful!
+                        echo 🌐 Check the NodePort from the service output and access via: http://${env.VM_IP}:NODE_PORT
+                    """
+                }
+            }
         }
     }
-}
 
     post {
         always {
