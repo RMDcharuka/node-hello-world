@@ -52,37 +52,39 @@ pipeline {
             }
         }
 
-        stage('Deploy to K3s Cluster') {
+       stage('Deploy to K3s Cluster') {
     steps {
         script {
             bat 'echo 🚀 Deploying to K3s cluster on VM...'
             
-            // Use Windows batch syntax with parentheses and IF ERRORLEVEL
+            // USE THE DIRECT FILE PATH - NOT JENKINS CREDENTIAL
+            def kubeconfigPath = 'C:\\\\Users\\\\user\\\\Desktop\\\\k3s.yaml'
+            
             bat """
-                kubectl --kubeconfig=C:\\Users\\user\\Downloads\\k3s.yaml cluster-info
+                kubectl --kubeconfig=${kubeconfigPath} cluster-info
                 if errorlevel 1 (
                     echo ERROR: Failed to connect to cluster
                     exit /b 1
                 )
                 
-                kubectl --kubeconfig=%KUBECONFIG% get deployment %APP_NAME%
+                kubectl --kubeconfig=${kubeconfigPath} get deployment %APP_NAME%
                 if errorlevel 1 (
                     echo Creating new deployment...
-                    kubectl --kubeconfig=%KUBECONFIG% create deployment %APP_NAME% ^
+                    kubectl --kubeconfig=${kubeconfigPath} create deployment %APP_NAME% ^
                         --image=%IMAGE_NAME% ^
                         --port=8083
-                    kubectl --kubeconfig=%KUBECONFIG% scale deployment/%APP_NAME% --replicas=2
+                    kubectl --kubeconfig=${kubeconfigPath} scale deployment/%APP_NAME% --replicas=2
                 ) else (
                     echo Updating existing deployment...
-                    kubectl --kubeconfig=%KUBECONFIG% set image deployment/%APP_NAME% %APP_NAME%=%IMAGE_NAME% --record
+                    kubectl --kubeconfig=${kubeconfigPath} set image deployment/%APP_NAME% %APP_NAME%=%IMAGE_NAME% --record
                 )
             """
             
             bat """
-                kubectl --kubeconfig=%KUBECONFIG% get service %APP_NAME%-service
+                kubectl --kubeconfig=${kubeconfigPath} get service %APP_NAME%-service
                 if errorlevel 1 (
                     echo Creating new service...
-                    kubectl --kubeconfig=%KUBECONFIG% expose deployment %APP_NAME% ^
+                    kubectl --kubeconfig=${kubeconfigPath} expose deployment %APP_NAME% ^
                         --port=80 ^
                         --target-port=8083 ^
                         --name=%APP_NAME%-service ^
@@ -92,7 +94,7 @@ pipeline {
                 )
             """
             
-            bat "kubectl --kubeconfig=%KUBECONFIG% rollout status deployment/%APP_NAME% --timeout=2m"
+            bat "kubectl --kubeconfig=${kubeconfigPath} rollout status deployment/%APP_NAME% --timeout=2m"
             bat 'echo ✅ Deployment and Service updated successfully!'
         }
     }
